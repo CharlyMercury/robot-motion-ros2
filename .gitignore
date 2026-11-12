@@ -1,0 +1,58 @@
+# ==========================================
+# Directorios de compilación de ROS 2 (colcon)
+# ==========================================
+build/
+install/
+log/
+
+# ==========================================
+# Archivos de Python y caché
+# ==========================================
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# ==========================================
+# Configuraciones de editores e IDEs (Opcional)
+# ==========================================
+# VS Code
+.vscode/
+# Clion / JetBrains
+.idea/
+# Archivos locales de Claude Code / IA si aplica
+.claude/
+
+# ==========================================
+# Archivos del Sistema Operativo
+# ==========================================
+.DS_Store
+Thumbs.db
+
+
+cat > .gitignore << 'EOF'
+# ROS 2
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# Entornos virtuales
+.venv/
+venv/
+
+# Editores
+.vscode/
+.idea/
+
+# Sistema
+.DS_Store
+EOF
