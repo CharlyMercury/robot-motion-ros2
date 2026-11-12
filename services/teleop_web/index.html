@@ -1,0 +1,185 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1">
+  <title>Robot Web Teleop</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 720px;
+      margin: 32px auto;
+      padding: 0 16px;
+    }
+    select { padding: 8px; margin: 8px; }
+    .status { margin: 14px 0; }
+    pre { overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h2>Robot Web Teleop</h2>
+
+  <p>Controla el robot con tu GameSir.</p>
+
+  <div class="status" id="connection">
+    Conectando...
+  </div>
+
+  <div class="status" id="gamepad">
+    Esperando control...
+  </div>
+
+  <label>
+    Eje lineal:
+    <select id="linearAxis"></select>
+  </label>
+
+  <label>
+    Eje angular:
+    <select id="angularAxis"></select>
+  </label>
+
+  <label>
+    Botón de habilitación:
+    <select id="enableButton"></select>
+  </label>
+
+  <p id="movement">Movimiento deshabilitado</p>
+
+  <h3>Diagnóstico del control</h3>
+  <pre id="diagnostics"></pre>
+
+  <script>
+    let socket = null;
+
+    const connection =
+      document.getElementById("connection");
+    const gamepadInfo =
+      document.getElementById("gamepad");
+    const movement =
+      document.getElementById("movement");
+    const diagnostics =
+      document.getElementById("diagnostics");
+
+    const linearAxis =
+      document.getElementById("linearAxis");
+    const angularAxis =
+      document.getElementById("angularAxis");
+    const enableButton =
+      document.getElementById("enableButton");
+
+    function populate(select, count, selected) {
+      for (let i = 0; i < count; i++) {
+        const option = document.createElement("option");
+        option.value = i;
+        option.textContent = i;
+        option.selected = i === selected;
+        select.appendChild(option);
+      }
+    }
+
+    populate(linearAxis, 16, 1);
+    populate(angularAxis, 16, 2);
+    populate(enableButton, 32, 4);
+
+    function connect() {
+      if (
+        socket &&
+        [WebSocket.CONNECTING, WebSocket.OPEN]
+          .includes(socket.readyState)
+      ) return;
+
+      socket = new WebSocket(
+        `ws://${location.host}/ws`
+      );
+
+      socket.onopen = () => {
+        connection.textContent = "WebSocket conectado";
+      };
+
+      socket.onclose = () => {
+        connection.textContent = "WebSocket desconectado";
+      };
+    }
+
+    function deadzone(value) {
+      if (Math.abs(value) < 0.12) return 0;
+      return Math.sign(value) *
+        (Math.abs(value) - 0.12) / 0.88;
+    }
+
+    function update() {
+      const pads = navigator.getGamepads
+        ? Array.from(navigator.getGamepads())
+        : [];
+
+      const pad = pads.find(p => p !== null);
+
+      let linear = 0;
+      let angular = 0;
+      let enabled = false;
+
+      if (pad) {
+        gamepadInfo.textContent =
+          `${pad.id} | ${pad.mapping || "Sin mapeo"}`;
+
+        const axisL = Number(linearAxis.value);
+        const axisA = Number(angularAxis.value);
+        const button = Number(enableButton.value);
+
+        const valueL = pad.axes[axisL] ?? 0;
+        const valueA = pad.axes[axisA] ?? 0;
+
+        enabled = Boolean(
+          pad.buttons[button]?.pressed &&
+          !document.hidden &&
+          document.hasFocus()
+        );
+
+        linear = enabled
+          ? -deadzone(valueL) * 0.12
+          : 0;
+
+        angular = enabled
+          ? -deadzone(valueA) * 0.8
+          : 0;
+
+        diagnostics.textContent =
+          "Ejes: " +
+          pad.axes.map((v, i) =>
+            `${i}: ${v.toFixed(2)}`
+          ).join(" | ") +
+          "\nBotones presionados: " +
+          pad.buttons
+            .map((b, i) => b.pressed ? i : null)
+            .filter(i => i !== null)
+            .join(", ");
+
+      } else {
+        gamepadInfo.textContent =
+          "Esperando control GameSir...";
+        diagnostics.textContent = "";
+      }
+
+      movement.textContent = enabled
+        ? `Habilitado | v=${linear.toFixed(2)} m/s | ` +
+          `w=${angular.toFixed(2)} rad/s`
+        : "Movimiento deshabilitado";
+
+      if (socket?.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+          linear,
+          angular,
+          enabled
+        }));
+      }
+    }
+
+    connect();
+    setInterval(connect, 1000);
+    setInterval(update, 50);
+  </script>
+</body>
+</html>
