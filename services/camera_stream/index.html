@@ -1,0 +1,191 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Robot Camera</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #111827;
+      color: white;
+      margin: 0;
+      padding: 24px;
+    }
+
+    main {
+      max-width: 960px;
+      margin: auto;
+    }
+
+    .viewer {
+      background: #000;
+      border-radius: 10px;
+      overflow: hidden;
+      aspect-ratio: 4 / 3;
+    }
+
+    video, img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    button {
+      padding: 10px 16px;
+      margin: 12px 8px 0 0;
+      cursor: pointer;
+    }
+
+    #status {
+      color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h2>Robot Camera</h2>
+    <p id="status">Conectando...</p>
+
+    <div class="viewer">
+      <video id="video" autoplay muted playsinline></video>
+      <img id="image" alt="Camara del robot" hidden>
+    </div>
+
+    <button onclick="startWebRTC()">WebRTC</button>
+    <button onclick="startMJPEG()">MJPEG</button>
+
+    <script>
+      const video = document.getElementById("video");
+      const image = document.getElementById("image");
+      const status = document.getElementById("status");
+
+      let pc = null;
+
+      function closePeer() {
+        if (pc) {
+          const old = pc;
+          pc = null;
+          old.close();
+        }
+        video.srcObject = null;
+      }
+
+      function startMJPEG() {
+        closePeer();
+
+        video.hidden = true;
+        image.hidden = false;
+        image.src = "/mjpeg?t=" + Date.now();
+
+        status.textContent = "Streaming MJPEG";
+      }
+
+      function waitForICE(peer) {
+        if (peer.iceGatheringState === "complete") {
+          return Promise.resolve();
+        }
+
+        return new Promise((resolve, reject) => {
+          const timer = setTimeout(() => {
+            peer.removeEventListener(
+              "icegatheringstatechange", check
+            );
+            reject(new Error("Tiempo de espera ICE agotado"));
+          }, 8000);
+
+          function check() {
+            if (peer.iceGatheringState === "complete") {
+              clearTimeout(timer);
+              peer.removeEventListener(
+                "icegatheringstatechange", check
+              );
+              resolve();
+            }
+          }
+
+          peer.addEventListener(
+            "icegatheringstatechange", check
+          );
+          check();
+        });
+      }
+
+      async function startWebRTC() {
+        closePeer();
+        image.src = "";
+        image.hidden = true;
+        video.hidden = false;
+
+        const peer = new RTCPeerConnection({
+          iceServers: []
+        });
+        pc = peer;
+
+        status.textContent = "Conectando WebRTC...";
+
+        peer.addTransceiver("video", {
+          direction: "recvonly"
+        });
+
+        peer.ontrack = event => {
+          video.srcObject = event.streams[0]
+            || new MediaStream([event.track]);
+
+          video.play().catch(() => {});
+        };
+
+        peer.onconnectionstatechange = () => {
+          if (pc !== peer) return;
+
+          status.textContent =
+            "WebRTC: " + peer.connectionState;
+
+          if (peer.connectionState === "failed") {
+            startMJPEG();
+          }
+        };
+
+        try {
+          const offer = await peer.createOffer();
+          await peer.setLocalDescription(offer);
+          await waitForICE(peer);
+
+          const response = await fetch("/offer", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              sdp: peer.localDescription.sdp,
+              type: peer.localDescription.type
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error("Error HTTP " + response.status);
+          }
+
+          const answer = await response.json();
+          if (pc !== peer) return;
+          await peer.setRemoteDescription(answer);
+
+        } catch (error) {
+          console.error(error);
+          if (pc === peer) startMJPEG();
+        }
+      }
+
+      window.addEventListener("pagehide", closePeer);
+
+      startWebRTC();
+    </script>
+  </main>
+</body>
+</html>
