@@ -2,184 +2,954 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1">
-  <title>Robot Web Teleop</title>
-  <style>
-    body {
-      font-family: system-ui, sans-serif;
-      max-width: 720px;
-      margin: 32px auto;
-      padding: 0 16px;
-    }
-    select { padding: 8px; margin: 8px; }
-    .status { margin: 14px 0; }
-    pre { overflow-x: auto; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Robot Motion | Control Center</title>
+
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #090e18;
+  --panel: #131c2b;
+  --line: #29354a;
+  --text: #e8eef9;
+  --muted: #91a2bd;
+  --accent: #45c5ff;
+  --green: #47dba1;
+  --red: #ff6576;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, sans-serif;
+}
+
+button, select { font: inherit; }
+
+header {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo {
+  background: var(--accent);
+  color: #08101c;
+  border-radius: 12px;
+  padding: 12px;
+  font-weight: 900;
+}
+
+h1 { font-size: 20px; margin: 0; }
+h2 { font-size: 16px; margin: 0 0 14px; }
+
+small, .muted { color: var(--muted); }
+
+.status-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.badge {
+  background: #202b3e;
+  border: 1px solid var(--line);
+  border-radius: 30px;
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
+.badge[data-ok="true"] { color: var(--green); }
+.badge[data-ok="false"] { color: var(--red); }
+
+main {
+  max-width: 1500px;
+  margin: auto;
+  padding: 20px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(300px, 1fr);
+  gap: 18px;
+}
+
+.panel {
+  min-width: 0;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 18px;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.viewer {
+  position: relative;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  margin-top: 15px;
+}
+
+.viewer video,
+.viewer img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+[hidden] { display: none !important; }
+
+.overlay {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  padding: 7px 12px;
+  background: #07101bcc;
+  border-radius: 8px;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+button {
+  background: #27364b;
+  color: white;
+  border: 1px solid #42516a;
+  border-radius: 9px;
+  padding: 10px 15px;
+  cursor: pointer;
+}
+
+button:hover { filter: brightness(1.17); }
+
+button.primary {
+  background: #096eab;
+  border-color: #1497dd;
+}
+
+button.danger {
+  background: #a52a3a;
+  border-color: #e74e62;
+  font-weight: bold;
+}
+
+button.success {
+  background: #146b51;
+  border-color: #299c76;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.metric {
+  padding: 16px;
+  background: #0d1522;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.metric span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.metric strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 27px;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric small { font-size: 12px; }
+
+.control-state {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #222b3b;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.control-state.active {
+  background: #123d31;
+  color: var(--green);
+}
+
+.config {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+label {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+select {
+  width: 100%;
+  margin-top: 7px;
+  background: #0c1421;
+  color: white;
+  border: 1px solid var(--line);
+  padding: 10px;
+  border-radius: 8px;
+}
+
+pre {
+  color: #b5cce8;
+  background: #0a111d;
+  border-radius: 10px;
+  padding: 15px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  min-height: 95px;
+  font-size: 12px;
+}
+
+.bottom {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.note {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+@media (max-width: 950px) {
+  .layout, .bottom { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 520px) {
+  main { padding: 12px; }
+  .panel { padding: 12px; }
+  .config { grid-template-columns: 1fr; }
+  .metric strong { font-size: 23px; }
+}
+</style>
 </head>
+
 <body>
-  <h2>Robot Web Teleop</h2>
 
-  <p>Controla el robot con tu GameSir.</p>
-
-  <div class="status" id="connection">
-    Conectando...
+<header>
+  <div class="brand">
+    <div class="logo">RM</div>
+    <div>
+      <h1>ROBOT MOTION</h1>
+      <small>ROS 2 · Live Teleoperation Center</small>
+    </div>
   </div>
 
-  <div class="status" id="gamepad">
-    Esperando control...
+  <div class="status-row">
+    <span class="badge" id="cameraBadge">Cámara: verificando</span>
+    <span class="badge" id="socketBadge">ROS 2: conectando</span>
+    <span class="badge" id="padBadge">GameSir: esperando</span>
   </div>
+</header>
 
-  <label>
-    Eje lineal:
-    <select id="linearAxis"></select>
-  </label>
+<main>
 
-  <label>
-    Eje angular:
-    <select id="angularAxis"></select>
-  </label>
+<div class="layout">
 
-  <label>
-    Botón de habilitación:
-    <select id="enableButton"></select>
-  </label>
+  <!-- CAMARA -->
+  <section class="panel">
 
-  <p id="movement">Movimiento deshabilitado</p>
+    <div class="panel-header">
+      <h2>Cámara del robot</h2>
+      <small id="cameraInfo">Esperando video...</small>
+    </div>
 
-  <h3>Diagnóstico del control</h3>
-  <pre id="diagnostics"></pre>
+    <div class="viewer">
+      <video id="video"
+             autoplay muted playsinline></video>
 
-  <script>
-    let socket = null;
+      <img id="image"
+           alt="Video en vivo del robot"
+           hidden>
 
-    const connection =
-      document.getElementById("connection");
-    const gamepadInfo =
-      document.getElementById("gamepad");
-    const movement =
-      document.getElementById("movement");
-    const diagnostics =
-      document.getElementById("diagnostics");
+      <div class="overlay" id="videoStatus">
+        Iniciando WebRTC...
+      </div>
+    </div>
 
-    const linearAxis =
-      document.getElementById("linearAxis");
-    const angularAxis =
-      document.getElementById("angularAxis");
-    const enableButton =
-      document.getElementById("enableButton");
+    <div class="actions">
+      <button class="primary" id="webrtcButton">
+        WebRTC
+      </button>
 
-    function populate(select, count, selected) {
-      for (let i = 0; i < count; i++) {
-        const option = document.createElement("option");
-        option.value = i;
-        option.textContent = i;
-        option.selected = i === selected;
-        select.appendChild(option);
-      }
+      <button id="mjpegButton">
+        MJPEG
+      </button>
+
+      <button id="retryButton">
+        Reconectar cámara
+      </button>
+    </div>
+
+    <p class="note">
+      WebRTC utiliza conexión de video de baja latencia.
+      MJPEG está disponible como alternativa.
+    </p>
+
+  </section>
+
+  <!-- CONTROL -->
+  <section class="panel">
+
+    <div class="panel-header">
+      <h2>Control de movimiento</h2>
+      <small>GameSir / Gamepad API</small>
+    </div>
+
+    <div class="control-state" id="controlState">
+      Control deshabilitado
+    </div>
+
+    <div class="actions">
+      <button class="success" id="armButton">
+        Habilitar control
+      </button>
+
+      <button class="danger" id="stopButton">
+        DETENER
+      </button>
+    </div>
+
+    <div class="metric-grid">
+      <div class="metric">
+        <span>Velocidad lineal</span>
+        <strong id="linearValue">0.000</strong>
+        <small>m/s</small>
+      </div>
+
+      <div class="metric">
+        <span>Velocidad angular</span>
+        <strong id="angularValue">0.000</strong>
+        <small>rad/s</small>
+      </div>
+
+      <div class="metric">
+        <span>Velocidad máxima</span>
+        <strong>0.12</strong>
+        <small>m/s</small>
+      </div>
+
+      <div class="metric">
+        <span>Watchdog</span>
+        <strong>300</strong>
+        <small>ms</small>
+      </div>
+    </div>
+
+    <p class="note" id="padName">
+      Conecta el GameSir y presiona cualquier botón.
+    </p>
+
+    <p class="note">
+      Para mover el robot, habilita el panel y mantén
+      presionado el botón de habilitación configurado.
+      Al perder el foco de la ventana, el control se desarma.
+    </p>
+
+  </section>
+
+</div>
+
+<!-- CONFIGURACION Y DIAGNOSTICO -->
+<div class="bottom">
+
+  <section class="panel">
+    <h2>Configuración del GameSir</h2>
+
+    <div class="config">
+
+      <label>
+        Eje lineal
+        <select id="linearAxis"></select>
+      </label>
+
+      <label>
+        Eje angular
+        <select id="angularAxis"></select>
+      </label>
+
+      <label>
+        Botón de habilitación
+        <select id="enableButton"></select>
+      </label>
+
+    </div>
+
+    <p class="note">
+      Valores iniciales conservados del servicio original:
+      eje lineal 1, eje angular 2 y botón 4.
+      Ajusta estos índices según el mapeo de tu GameSir.
+    </p>
+  </section>
+
+  <section class="panel">
+    <h2>Diagnóstico del control</h2>
+    <pre id="diagnostics">Esperando GameSir...</pre>
+  </section>
+
+</div>
+
+</main>
+
+<script>
+"use strict";
+
+// ==========================================================
+// CONFIGURACION
+// ==========================================================
+
+const MAX_LINEAR = 0.12;
+const MAX_ANGULAR = 0.8;
+const DEADZONE = 0.12;
+const SEND_INTERVAL = 50;
+
+const $ = id => document.getElementById(id);
+
+const video = $("video");
+const image = $("image");
+
+const linearAxis = $("linearAxis");
+const angularAxis = $("angularAxis");
+const enableButton = $("enableButton");
+
+let socket = null;
+let peer = null;
+let videoMode = "webrtc";
+let armed = false;
+
+// ==========================================================
+// INTERFAZ
+// ==========================================================
+
+function setBadge(id, label, ok) {
+  const element = $(id);
+  element.textContent = label;
+  element.dataset.ok = String(ok);
+}
+
+function setControlState(text, active) {
+  const element = $("controlState");
+
+  element.textContent = text;
+  element.classList.toggle("active", active);
+}
+
+function populate(select, count, selected) {
+  for (let i = 0; i < count; i++) {
+    const option = document.createElement("option");
+
+    option.value = String(i);
+    option.textContent = String(i);
+    option.selected = i === selected;
+
+    select.appendChild(option);
+  }
+}
+
+populate(linearAxis, 16, 1);
+populate(angularAxis, 16, 2);
+populate(enableButton, 32, 4);
+
+// ==========================================================
+// WEBSOCKET DE TELEOPERACION
+// ==========================================================
+
+function sendStop() {
+  if (socket?.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({
+      linear: 0.0,
+      angular: 0.0,
+      enabled: false
+    }));
+  }
+}
+
+function disarm() {
+  armed = false;
+  sendStop();
+
+  $("linearValue").textContent = "0.000";
+  $("angularValue").textContent = "0.000";
+
+  setControlState("Control deshabilitado", false);
+}
+
+function connectSocket() {
+  if (
+    socket &&
+    (
+      socket.readyState === WebSocket.CONNECTING ||
+      socket.readyState === WebSocket.OPEN
+    )
+  ) return;
+
+  const protocol =
+    location.protocol === "https:" ? "wss:" : "ws:";
+
+  const ws = new WebSocket(
+    `${protocol}//${location.host}/ws`
+  );
+
+  socket = ws;
+
+  ws.onopen = () => {
+    if (socket !== ws) return;
+
+    setBadge("socketBadge", "ROS 2: conectado", true);
+    disarm();
+  };
+
+  ws.onclose = () => {
+    if (socket !== ws) return;
+
+    setBadge("socketBadge", "ROS 2: desconectado", false);
+    disarm();
+  };
+
+  ws.onerror = () => {
+    if (socket !== ws) return;
+
+    setBadge("socketBadge", "ROS 2: error", false);
+    disarm();
+  };
+}
+
+// ==========================================================
+// GAMEPAD
+// ==========================================================
+
+function deadzone(value) {
+  if (Math.abs(value) < DEADZONE) return 0;
+
+  return Math.sign(value) *
+    (Math.abs(value) - DEADZONE) /
+    (1 - DEADZONE);
+}
+
+function getGamepad() {
+  if (!navigator.getGamepads) return null;
+
+  return Array.from(
+    navigator.getGamepads() || []
+  ).find(Boolean) || null;
+}
+
+function updateGamepad() {
+  const pad = getGamepad();
+
+  let linear = 0.0;
+  let angular = 0.0;
+  let enabled = false;
+
+  if (pad) {
+    setBadge("padBadge", "GameSir: conectado", true);
+
+    $("padName").textContent =
+      `${pad.id} | ${pad.mapping || "Sin mapeo"}`;
+
+    const axisL = Number(linearAxis.value);
+    const axisA = Number(angularAxis.value);
+    const button = Number(enableButton.value);
+
+    const valueL = pad.axes[axisL] ?? 0;
+    const valueA = pad.axes[axisA] ?? 0;
+
+    enabled = Boolean(
+      armed &&
+      socket?.readyState === WebSocket.OPEN &&
+      pad.connected &&
+      pad.buttons[button]?.pressed &&
+      !document.hidden &&
+      document.hasFocus()
+    );
+
+    if (enabled) {
+      linear = -deadzone(valueL) * MAX_LINEAR;
+      angular = -deadzone(valueA) * MAX_ANGULAR;
     }
 
-    populate(linearAxis, 16, 1);
-    populate(angularAxis, 16, 2);
-    populate(enableButton, 32, 4);
-
-    function connect() {
-      if (
-        socket &&
-        [WebSocket.CONNECTING, WebSocket.OPEN]
-          .includes(socket.readyState)
-      ) return;
-
-      socket = new WebSocket(
-        `ws://${location.host}/ws`
+    $("diagnostics").textContent =
+      "Control: " + pad.id + "\n\n" +
+      "Ejes:\n" +
+      pad.axes.map(
+        (value, index) =>
+          `${index}: ${value.toFixed(3)}`
+      ).join(" | ") +
+      "\n\nBotones presionados:\n" +
+      (
+        pad.buttons
+          .map((button, index) =>
+            button.pressed ? index : null
+          )
+          .filter(index => index !== null)
+          .join(", ") || "Ninguno"
       );
 
-      socket.onopen = () => {
-        connection.textContent = "WebSocket conectado";
-      };
+  } else {
+    setBadge("padBadge", "GameSir: desconectado", false);
 
-      socket.onclose = () => {
-        connection.textContent = "WebSocket desconectado";
-      };
-    }
+    $("padName").textContent =
+      "Esperando control GameSir...";
 
-    function deadzone(value) {
-      if (Math.abs(value) < 0.12) return 0;
-      return Math.sign(value) *
-        (Math.abs(value) - 0.12) / 0.88;
-    }
+    $("diagnostics").textContent =
+      "Conecta el GameSir y presiona un botón.";
+  }
 
-    function update() {
-      const pads = navigator.getGamepads
-        ? Array.from(navigator.getGamepads())
-        : [];
+  $("linearValue").textContent = linear.toFixed(3);
+  $("angularValue").textContent = angular.toFixed(3);
 
-      const pad = pads.find(p => p !== null);
+  if (enabled) {
+    setControlState("Robot habilitado: movimiento activo", true);
+  } else if (armed) {
+    setControlState(
+      "Panel habilitado: mantén el botón de seguridad",
+      false
+    );
+  } else {
+    setControlState("Control deshabilitado", false);
+  }
 
-      let linear = 0;
-      let angular = 0;
-      let enabled = false;
+  // Evitar acumular comandos atrasados.
+  if (
+    socket?.readyState === WebSocket.OPEN &&
+    socket.bufferedAmount < 4096
+  ) {
+    socket.send(JSON.stringify({
+      linear,
+      angular,
+      enabled
+    }));
+  }
+}
 
-      if (pad) {
-        gamepadInfo.textContent =
-          `${pad.id} | ${pad.mapping || "Sin mapeo"}`;
+// ==========================================================
+// BOTONES DE CONTROL
+// ==========================================================
 
-        const axisL = Number(linearAxis.value);
-        const axisA = Number(angularAxis.value);
-        const button = Number(enableButton.value);
+$("armButton").addEventListener("click", () => {
+  if (socket?.readyState !== WebSocket.OPEN) {
+    setControlState(
+      "No hay conexión de teleoperación",
+      false
+    );
+    return;
+  }
 
-        const valueL = pad.axes[axisL] ?? 0;
-        const valueA = pad.axes[axisA] ?? 0;
+  if (!getGamepad()) {
+    setControlState(
+      "No se detectó ningún GameSir",
+      false
+    );
+    return;
+  }
 
-        enabled = Boolean(
-          pad.buttons[button]?.pressed &&
-          !document.hidden &&
-          document.hasFocus()
+  armed = true;
+  setControlState(
+    "Panel habilitado: mantén el botón de seguridad",
+    false
+  );
+});
+
+$("stopButton").addEventListener("click", disarm);
+
+window.addEventListener("blur", disarm);
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) disarm();
+});
+
+window.addEventListener("gamepaddisconnected", disarm);
+
+// ==========================================================
+// CAMARA: WEBRTC
+// ==========================================================
+
+function closePeer() {
+  if (peer) {
+    const old = peer;
+    peer = null;
+    old.close();
+  }
+
+  video.srcObject = null;
+}
+
+function waitForICE(pc) {
+  if (pc.iceGatheringState === "complete") {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      pc.removeEventListener(
+        "icegatheringstatechange",
+        check
+      );
+
+      reject(new Error("Timeout ICE"));
+    }, 8000);
+
+    function check() {
+      if (pc.iceGatheringState === "complete") {
+        clearTimeout(timer);
+
+        pc.removeEventListener(
+          "icegatheringstatechange",
+          check
         );
 
-        linear = enabled
-          ? -deadzone(valueL) * 0.12
-          : 0;
-
-        angular = enabled
-          ? -deadzone(valueA) * 0.8
-          : 0;
-
-        diagnostics.textContent =
-          "Ejes: " +
-          pad.axes.map((v, i) =>
-            `${i}: ${v.toFixed(2)}`
-          ).join(" | ") +
-          "\nBotones presionados: " +
-          pad.buttons
-            .map((b, i) => b.pressed ? i : null)
-            .filter(i => i !== null)
-            .join(", ");
-
-      } else {
-        gamepadInfo.textContent =
-          "Esperando control GameSir...";
-        diagnostics.textContent = "";
-      }
-
-      movement.textContent = enabled
-        ? `Habilitado | v=${linear.toFixed(2)} m/s | ` +
-          `w=${angular.toFixed(2)} rad/s`
-        : "Movimiento deshabilitado";
-
-      if (socket?.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({
-          linear,
-          angular,
-          enabled
-        }));
+        resolve();
       }
     }
 
-    connect();
-    setInterval(connect, 1000);
-    setInterval(update, 50);
-  </script>
+    pc.addEventListener(
+      "icegatheringstatechange",
+      check
+    );
+
+    check();
+  });
+}
+
+function startMJPEG() {
+  videoMode = "mjpeg";
+
+  closePeer();
+
+  video.hidden = true;
+  image.hidden = false;
+
+  image.src =
+    "/camera/mjpeg?t=" + Date.now();
+
+  $("videoStatus").textContent =
+    "Transmisión MJPEG";
+}
+
+async function startWebRTC() {
+  videoMode = "webrtc";
+
+  closePeer();
+
+  image.src = "";
+  image.hidden = true;
+  video.hidden = false;
+
+  const pc = new RTCPeerConnection({
+    iceServers: []
+  });
+
+  peer = pc;
+
+  $("videoStatus").textContent =
+    "Conectando WebRTC...";
+
+  pc.addTransceiver("video", {
+    direction: "recvonly"
+  });
+
+  pc.ontrack = event => {
+    if (peer !== pc) return;
+
+    video.srcObject =
+      event.streams[0] ||
+      new MediaStream([event.track]);
+
+    video.play().catch(console.error);
+  };
+
+  pc.onconnectionstatechange = () => {
+    if (peer !== pc) return;
+
+    $("videoStatus").textContent =
+      "WebRTC: " + pc.connectionState;
+
+    if (pc.connectionState === "failed") {
+      startMJPEG();
+    }
+  };
+
+  try {
+    const offer = await pc.createOffer();
+
+    if (peer !== pc) return;
+
+    await pc.setLocalDescription(offer);
+    await waitForICE(pc);
+
+    if (peer !== pc) return;
+
+    const response = await fetch("/camera/offer", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        sdp: pc.localDescription.sdp,
+        type: pc.localDescription.type
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        "Error HTTP " + response.status
+      );
+    }
+
+    const answer = await response.json();
+
+    if (peer !== pc) return;
+
+    await pc.setRemoteDescription(answer);
+
+  } catch (error) {
+    console.error("WebRTC:", error);
+
+    if (peer === pc) startMJPEG();
+  }
+}
+
+$("webrtcButton").addEventListener(
+  "click", startWebRTC
+);
+
+$("mjpegButton").addEventListener(
+  "click", startMJPEG
+);
+
+$("retryButton").addEventListener("click", () => {
+  if (videoMode === "mjpeg") {
+    startMJPEG();
+  } else {
+    startWebRTC();
+  }
+});
+
+image.onerror = () => {
+  if (videoMode === "mjpeg") {
+    $("videoStatus").textContent =
+      "Error en transmisión MJPEG";
+  }
+};
+
+// ==========================================================
+// SALUD DE CAMARA
+// ==========================================================
+
+async function updateCameraHealth() {
+  try {
+    const response = await fetch(
+      "/camera/health",
+      { cache: "no-store" }
+    );
+
+    if (!response.ok) {
+      throw new Error("Camara no disponible");
+    }
+
+    const data = await response.json();
+    const camera = data.camera || {};
+
+    const age = camera.last_frame_age_seconds;
+
+    const fresh =
+      data.ok === true &&
+      typeof age === "number" &&
+      age < 3;
+
+    setBadge(
+      "cameraBadge",
+      fresh ? "Cámara: activa" : "Cámara: sin señal",
+      fresh
+    );
+
+    $("cameraInfo").textContent =
+      `${camera.width || "?"} × ` +
+      `${camera.height || "?"} · ` +
+      `${camera.fps_requested || "?"} FPS solicitados`;
+
+  } catch (error) {
+    setBadge(
+      "cameraBadge",
+      "Cámara: desconectada",
+      false
+    );
+
+    $("cameraInfo").textContent =
+      "Servicio de cámara no disponible";
+  }
+}
+
+// ==========================================================
+// INICIALIZACION
+// ==========================================================
+
+connectSocket();
+startWebRTC();
+updateCameraHealth();
+
+setInterval(connectSocket, 2000);
+setInterval(updateGamepad, SEND_INTERVAL);
+setInterval(updateCameraHealth, 2000);
+
+window.addEventListener("pagehide", () => {
+  disarm();
+  closePeer();
+
+  image.src = "";
+
+  if (socket) {
+    socket.close();
+  }
+});
+
+</script>
+
 </body>
 </html>
